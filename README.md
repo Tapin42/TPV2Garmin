@@ -2,7 +2,7 @@
 
 Automatically upload [TrainingPeaks Virtual](https://www.trainingpeaks.com/virtual/) FIT files to Garmin Connect with device spoofing.
 
-TPV2Garmin watches your TPV FIT folder, rewrites each file to appear as a real Garmin device (via [Fit-File-Faker](https://github.com/gloscherrybomb/Fit-File-Faker)), and uploads it to Garmin Connect — all in the background.
+TPV2Garmin watches your TPV FIT folder, rewrites each file to appear as a real Garmin device (via Fit-File-Faker), and uploads it to Garmin Connect — all in the background.
 
 I really like coffee, so if this enhances your life, please buy me one :)
 
