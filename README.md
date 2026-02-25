@@ -4,6 +4,10 @@ Automatically upload [TrainingPeaks Virtual](https://www.trainingpeaks.com/virtu
 
 TPV2Garmin watches your TPV FIT folder, rewrites each file to appear as a real Garmin device (via [Fit-File-Faker](https://github.com/gloscherrybomb/Fit-File-Faker)), and uploads it to Garmin Connect — all in the background.
 
+I really like coffee, so if this enhances your life, please buy me one :)
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/jeastwood)
+
 ## Download
 
 Grab the latest **TPV2Garmin.exe** from the [Releases](https://github.com/gloscherrybomb/TPV2Garmin/releases/latest) page.
