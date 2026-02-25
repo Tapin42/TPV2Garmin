@@ -10,6 +10,7 @@ from typing import Callable
 
 from tpv2garmin.auth import get_auth_manager
 from tpv2garmin.fixer import (
+    get_fit_distance,
     get_fixer,
     get_unprocessed_files,
     is_processed,
@@ -19,6 +20,7 @@ from tpv2garmin.fixer import (
 
 logger = logging.getLogger(__name__)
 
+MIN_DISTANCE_METERS = 100
 MAX_RETRIES = 3
 RETRY_BACKOFF = 30  # seconds
 
@@ -76,6 +78,13 @@ class Pipeline:
         # Skip duplicates
         if is_processed(path.name):
             logger.info("Already processed: %s", path.name)
+            return
+
+        # Skip short/non-activity files
+        distance = get_fit_distance(path)
+        if distance is not None and distance < MIN_DISTANCE_METERS:
+            logger.info("Skipping %s: distance %.0fm < %dm", path.name, distance, MIN_DISTANCE_METERS)
+            mark_processed(path.name)
             return
 
         if self.on_file_processing:

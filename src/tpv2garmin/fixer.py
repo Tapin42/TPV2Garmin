@@ -196,6 +196,22 @@ def get_unprocessed_files(folder: Path) -> list[Path]:
     return unprocessed
 
 
+def get_fit_distance(path: Path) -> float | None:
+    """Return total distance (meters) from the FIT session, or None on failure."""
+    try:
+        from fit_tool.fit_file import FitFile
+        from fit_tool.profile.messages.session_message import SessionMessage
+
+        fit_file = FitFile.from_file(str(path))
+        for record in fit_file.records:
+            msg = record.message
+            if isinstance(msg, SessionMessage) and msg.total_distance is not None:
+                return float(msg.total_distance)
+    except Exception:
+        logger.debug("Could not read distance from %s", path.name, exc_info=True)
+    return None
+
+
 # ── Lazy singleton ───────────────────────────────────────────────────────────
 _fixer: FitFixer | None = None
 
