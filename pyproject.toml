@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tpv2garmin"
+version = "1.0.0"
+description = "Auto-upload TrainingPeaks Virtual FIT files to Garmin Connect with device spoofing"
+requires-python = ">=3.12"
+dependencies = [
+    "fit-file-faker>=2.0.0",
+    "garth>=0.5.21",
+    "pystray>=0.19.5",
+    "Pillow>=10.0.0",
+    "watchdog>=6.0.0",
+    "psutil>=5.9.0",
+    "winotify>=1.1.0",
+    "appdirs>=1.4.4",
+]
+
+[project.gui-scripts]
+tpv2garmin = "tpv2garmin.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

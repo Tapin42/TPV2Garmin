@@ -1,0 +1,9 @@
+fit-file-faker>=2.0.0
+garth>=0.5.21
+pystray>=0.19.5
+Pillow>=10.0.0
+watchdog>=6.0.0
+psutil>=5.9.0
+winotify>=1.1.0
+appdirs>=1.4.4
+pyinstaller>=6.0.0
