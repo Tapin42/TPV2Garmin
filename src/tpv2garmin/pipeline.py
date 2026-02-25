@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 from pathlib import Path
 from typing import Callable
 
@@ -78,6 +79,13 @@ class Pipeline:
         # Skip duplicates
         if is_processed(path.name):
             logger.info("Already processed: %s", path.name)
+            return
+
+        # Skip files not from today
+        file_date = date.fromtimestamp(path.stat().st_mtime)
+        if file_date != date.today():
+            logger.info("Skipping %s: file date %s is not today", path.name, file_date)
+            mark_processed(path.name)
             return
 
         # Skip short/non-activity files
