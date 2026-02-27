@@ -281,15 +281,15 @@ class MainWindow:
     # ── TPV-linked mode ───────────────────────────────────────────────────
 
     def _start_process_monitor(self) -> None:
-        from tpv2garmin.process_monitor import ProcessMonitor
+        from tpv2garmin.process_monitor import ProcessMonitor, TPV_PROCESS_NAME
 
         self._process_monitor = ProcessMonitor()
         self._process_monitor.on_tpv_detected = self._on_tpv_detected
         self._process_monitor.on_tpv_exited = self._on_tpv_exited
         self._process_monitor.on_grace_expired = self._on_grace_expired
         self._process_monitor.start()
-        self._set_status("TPV-linked: waiting for TPVirtual.exe", "grey")
-        logger.info("TPV-linked mode: monitoring for TPVirtual.exe")
+        self._set_status(f"TPV-linked: waiting for {TPV_PROCESS_NAME}", "grey")
+        logger.info("TPV-linked mode: monitoring for %s", TPV_PROCESS_NAME)
 
     def _on_tpv_detected(self) -> None:
         self.root.after(0, self._start_watching)
@@ -298,9 +298,11 @@ class MainWindow:
         self.root.after(0, lambda: self._set_status("Grace period (5 min)", "orange"))
 
     def _on_grace_expired(self) -> None:
+        from tpv2garmin.process_monitor import TPV_PROCESS_NAME
+
         self.root.after(0, self._stop_watching)
         self.root.after(0, lambda: self._set_status(
-            "TPV-linked: waiting for TPVirtual.exe", "grey"
+            f"TPV-linked: waiting for {TPV_PROCESS_NAME}", "grey"
         ))
 
     # ── Status display ────────────────────────────────────────────────────
