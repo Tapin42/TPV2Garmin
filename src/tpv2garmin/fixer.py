@@ -11,6 +11,8 @@ import shutil
 import time
 from pathlib import Path
 
+from fit_file_faker.config import Profile
+
 from tpv2garmin.config import build_profile, get_config_manager, PROCESSED_DIR, PROCESSED_LOG
 
 logger = logging.getLogger(__name__)
@@ -29,6 +31,63 @@ def ensure_patch() -> None:
     apply_fit_tool_patch()
     _patch_applied = True
     logger.debug("FIT tool patch applied")
+
+
+# ── Device-info injection ────────────────────────────────────────────────────
+
+def _inject_device_info(fit_path: Path, profile: Profile) -> None:
+    """Inject a DeviceInfoMessage (device_type=0) into a fixed FIT file.
+
+    Fit-File-Faker's ``edit_fit()`` drops the primary DeviceInfoMessage
+    (device_type == 0).  Garmin Connect requires this record to attribute
+    the activity to a specific device and compute Training Load / VO2 Max.
+
+    This function reads the file produced by ``edit_fit()``, rebuilds it
+    with a new DeviceInfoMessage inserted right after the FileCreatorMessage
+    (or FileIdMessage if no creator exists), and writes it back.
+    """
+    from fit_tool.fit_file import FitFile
+    from fit_tool.fit_file_builder import FitFileBuilder
+    from fit_tool.profile.messages.device_info_message import DeviceInfoMessage
+    from fit_tool.profile.messages.file_creator_message import FileCreatorMessage
+    from fit_tool.profile.messages.file_id_message import FileIdMessage
+
+    fit_file = FitFile.from_file(str(fit_path))
+
+    # Collect all data messages from the existing file.
+    messages = []
+    has_creator = False
+    for record in fit_file.records:
+        msg = record.message
+        if isinstance(msg, FileCreatorMessage):
+            has_creator = True
+        # Skip existing definition messages — the builder creates them.
+        if not record.is_definition:
+            messages.append(msg)
+
+    # Build the new DeviceInfoMessage.
+    device_msg = DeviceInfoMessage()
+    device_msg.device_type = 0
+    device_msg.device_index = 0
+    device_msg.manufacturer = profile.manufacturer
+    device_msg.product = profile.device
+    device_msg.serial_number = profile.serial_number
+    if profile.software_version is not None:
+        device_msg.software_version = profile.software_version / 100.0
+    device_msg.product_name = ""
+
+    # Rebuild the file, inserting the device_info after the anchor message.
+    anchor_type = FileCreatorMessage if has_creator else FileIdMessage
+    builder = FitFileBuilder(auto_define=True, min_string_size=0)
+
+    for msg in messages:
+        builder.add(msg)
+        if isinstance(msg, anchor_type):
+            builder.add(device_msg)
+
+    new_fit = builder.build()
+    new_fit.to_file(str(fit_path))
+    logger.info("Injected DeviceInfoMessage (device_type=0) into %s", fit_path.name)
 
 
 # ── FitFixer ─────────────────────────────────────────────────────────────────
@@ -81,6 +140,10 @@ class FitFixer:
                 return None
 
             logger.info("Fixed file written to %s", fixed_path)
+
+            # Post-process: inject DeviceInfoMessage that edit_fit() drops.
+            _inject_device_info(fixed_path, profile)
+
             return fixed_path
 
         except Exception:
