@@ -17,6 +17,7 @@ dependencies = [
     "appdirs>=1.4.4",
     "winotify>=1.1.0; sys_platform == 'win32'",
     "desktop-notifier>=4.0.0; sys_platform != 'win32'",
+    "pyobjc-framework-Cocoa>=10.0; sys_platform == 'darwin'",
 ]
 
 [project.gui-scripts]
