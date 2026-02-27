@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import queue
+import sys
 import tkinter as tk
 from tkinter import ttk
 from pathlib import Path
@@ -36,6 +38,7 @@ class MainWindow:
         self._process_monitor = None
         self._tray = None
         self._watching = False
+        self._ui_update_queue: queue.Queue[tuple[str, str]] = queue.Queue()
 
         self._build_ui()
         self._wire_pipeline()
@@ -117,7 +120,8 @@ class MainWindow:
         ttk.Button(bottom, text="Settings", command=self._open_settings).pack(
             side="left"
         )
-        ttk.Button(bottom, text="Minimize to Tray", command=self._minimize_to_tray).pack(
+        minimize_label = "Minimize to Menu Bar" if sys.platform == "darwin" else "Minimize to Tray"
+        ttk.Button(bottom, text=minimize_label, command=self._minimize_to_tray).pack(
             side="right"
         )
 
@@ -134,24 +138,33 @@ class MainWindow:
         self._pipeline.on_auth_required = self._cb_auth_required
 
     def _cb_file_detected(self, path: Path) -> None:
-        self._set_status("Processing...", "orange")
+        # Pipeline runs in worker thread; Tk requires main thread on macOS
+        self._ui_update_queue.put(("Processing...", "orange"))
 
     def _cb_file_processing(self, path: Path) -> None:
         pass  # already logged
 
     def _cb_file_success(self, path: Path) -> None:
-        self._set_status("Watching for new files", "green")
+        self._ui_update_queue.put(("Watching for new files", "green"))
         get_notifier().notify_success(path.name)
 
     def _cb_file_error(self, path: Path, error: str) -> None:
-        self._set_status("Error — see log", "red")
+        self._ui_update_queue.put(("Error — see log", "red"))
         get_notifier().notify_error(path.name, error)
 
     def _cb_auth_required(self) -> None:
-        self._set_status("Authentication required", "red")
+        self._ui_update_queue.put(("Authentication required", "red"))
         get_notifier().notify_auth_required()
-        # Show the window so the user can re-authenticate
         self.root.after(0, self._restore_window)
+
+    def _drain_ui_updates(self) -> None:
+        """Process pending status updates (main thread only)."""
+        while True:
+            try:
+                text, colour = self._ui_update_queue.get_nowait()
+                self._set_status(text, colour)
+            except queue.Empty:
+                break
 
     # ── Watching control ──────────────────────────────────────────────────
 
@@ -247,6 +260,7 @@ class MainWindow:
         self._poll_log()
 
     def _poll_log(self) -> None:
+        self._drain_ui_updates()
         if _queue_handler is not None:
             messages = _queue_handler.get_messages()
             if messages:
