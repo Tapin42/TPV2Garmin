@@ -22,6 +22,15 @@ logger = logging.getLogger(__name__)
 LOG_POLL_MS = 250  # ms between queue → Text widget updates
 
 
+def _log_font() -> tuple[str, int]:
+    """Monospace font for the activity log. Consolas on Windows, Menlo on Mac."""
+    if sys.platform == "darwin":
+        return ("Menlo", 9)
+    if sys.platform == "win32":
+        return ("Consolas", 9)
+    return ("Monospace", 9)
+
+
 class MainWindow:
     """Main application window for TPV2Garmin."""
 
@@ -106,7 +115,7 @@ class MainWindow:
 
         self._log_text = tk.Text(
             log_frame, height=12, wrap="word", state="disabled",
-            bg="#1e1e1e", fg="#cccccc", font=("Consolas", 9),
+            bg="#1e1e1e", fg="#cccccc", font=_log_font(),
         )
         scrollbar = ttk.Scrollbar(log_frame, command=self._log_text.yview)
         self._log_text.config(yscrollcommand=scrollbar.set)
