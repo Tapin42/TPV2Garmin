@@ -109,8 +109,19 @@ def get_device_choices() -> list[tuple[str, int, str]]:
 
 
 # ── Profile bridge ──────────────────────────────────────────────────────────
+def _lookup_software_version(product_id: int) -> int | None:
+    """Look up software_version from the curated device list."""
+    for device in SUPPLEMENTAL_GARMIN_DEVICES:
+        if device.product_id == product_id:
+            return device.software_version
+    return None
+
+
 def build_profile(config: AppConfig) -> Profile:
     """Create a FFF Profile from our AppConfig."""
+    sw = config.software_version
+    if sw is None:
+        sw = _lookup_software_version(config.device_product)
     return Profile(
         name="tpv2garmin",
         app_type=AppType.TP_VIRTUAL,
@@ -120,7 +131,7 @@ def build_profile(config: AppConfig) -> Profile:
         manufacturer=config.manufacturer,
         device=config.device_product,
         serial_number=config.serial_number,
-        software_version=config.software_version,
+        software_version=sw,
     )
 
 
