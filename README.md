@@ -49,14 +49,22 @@ pip install -e .
 tpv2garmin
 ```
 
-### Building the .exe
+### Building
 
+**Windows (.exe):**
 ```bash
 pip install pyinstaller
 pyinstaller build/tpv2garmin.spec
 ```
-
 Output: `dist/TPV2Garmin.exe`
+
+**macOS (.app):**
+```bash
+pip install pyinstaller
+python build/create_icns.py   # Regenerate icon.icns from icon.png (if needed)
+pyinstaller build/tpv2garmin_mac.spec
+```
+Output: `dist/TPV2Garmin.app`
 
 ## License
 
