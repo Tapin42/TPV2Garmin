@@ -22,6 +22,52 @@ logger = logging.getLogger(__name__)
 LOG_POLL_MS = 250  # ms between queue → Text widget updates
 
 
+def _set_mac_dock_icon() -> None:
+    """Set the Dock icon on macOS to match the menu bar icon (requires PyObjC)."""
+    if sys.platform != "darwin":
+        return
+    icon_path = Path(__file__).parent / "assets" / "icon.png"
+    if not icon_path.exists():
+        return
+    try:
+        from AppKit import NSApplication, NSImage
+
+        app = NSApplication.sharedApplication()
+        img = NSImage.alloc().initWithContentsOfFile_(str(icon_path.resolve()))
+        if img is not None:
+            app.setApplicationIconImage_(img)
+            logger.debug("Set Dock icon from %s", icon_path)
+    except ImportError:
+        pass  # PyObjC not available
+    except Exception:
+        logger.debug("Could not set Dock icon", exc_info=True)
+
+
+def _set_mac_dock_visible(visible: bool) -> None:
+    """Show or hide the Dock icon on macOS (for minimize-to-menu-bar behavior)."""
+    if sys.platform != "darwin":
+        return
+    try:
+        from AppKit import (
+            NSApplication,
+            NSApplicationActivationPolicyAccessory,
+            NSApplicationActivationPolicyRegular,
+        )
+
+        app = NSApplication.sharedApplication()
+        if visible:
+            app.setActivationPolicy_(NSApplicationActivationPolicyRegular)
+            app.activateIgnoringOtherApps_(True)
+            _set_mac_dock_icon()  # Restore custom icon
+        else:
+            app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
+            logger.debug("Dock icon hidden (activation policy: Accessory)")
+    except ImportError:
+        pass  # PyObjC not available
+    except Exception:
+        logger.debug("Could not toggle Dock icon visibility", exc_info=True)
+
+
 def _log_font() -> tuple[str, int]:
     """Monospace font for the activity log. Consolas on Windows, Menlo on Mac."""
     if sys.platform == "darwin":
@@ -48,6 +94,7 @@ class MainWindow:
         self._tray = None
         self._watching = False
         self._ui_update_queue: queue.Queue[tuple[str, str]] = queue.Queue()
+        self._quit_requested = False
 
         self._build_ui()
         self._wire_pipeline()
@@ -166,14 +213,26 @@ class MainWindow:
         get_notifier().notify_auth_required()
         self.root.after(0, self._restore_window)
 
-    def _drain_ui_updates(self) -> None:
-        """Process pending status updates (main thread only)."""
+    def _drain_ui_updates(self) -> bool:
+        """Process pending UI updates (main thread only). Returns False if quit requested."""
+        if self._quit_requested:
+            self._quit_requested = False
+            self._quit()
+            return False
         while True:
             try:
                 text, colour = self._ui_update_queue.get_nowait()
-                self._set_status(text, colour)
+                if text == "__open__":
+                    self._restore_window()
+                elif text == "__process_now__":
+                    self._process_now()
+                elif text == "__toggle__":
+                    self._toggle_watching()
+                else:
+                    self._set_status(text, colour)
             except queue.Empty:
                 break
+        return True
 
     # ── Watching control ──────────────────────────────────────────────────
 
@@ -269,7 +328,8 @@ class MainWindow:
         self._poll_log()
 
     def _poll_log(self) -> None:
-        self._drain_ui_updates()
+        if not self._drain_ui_updates():
+            return  # Quit requested, root is being destroyed
         if _queue_handler is not None:
             messages = _queue_handler.get_messages()
             if messages:
@@ -308,19 +368,22 @@ class MainWindow:
         self.root.withdraw()
         if self._tray is None:
             self._create_tray()
+        _set_mac_dock_visible(False)
 
     def _create_tray(self) -> None:
         from tpv2garmin.tray import TrayManager
 
+        # Quit uses a flag: root.after() from tray thread is unreliable on macOS
         self._tray = TrayManager(
-            on_open=lambda: self.root.after(0, self._restore_window),
-            on_process_now=lambda: self.root.after(0, self._process_now),
-            on_toggle_watching=lambda: self.root.after(0, self._toggle_watching),
-            on_quit=lambda: self.root.after(0, self._quit),
+            on_open=lambda: self._ui_update_queue.put(("__open__", "")),
+            on_process_now=lambda: self._ui_update_queue.put(("__process_now__", "")),
+            on_toggle_watching=lambda: self._ui_update_queue.put(("__toggle__", "")),
+            on_quit=lambda: setattr(self, "_quit_requested", True),
         )
         self._tray.start()
 
     def _restore_window(self) -> None:
+        _set_mac_dock_visible(True)
         self.root.deiconify()
         self.root.lift()
 
@@ -358,6 +421,7 @@ def main() -> None:
     logger.info("TPV2Garmin starting")
 
     root = tk.Tk()
+    _set_mac_dock_icon()
     root.withdraw()  # hide while deciding wizard vs main
 
     cm = get_config_manager()
